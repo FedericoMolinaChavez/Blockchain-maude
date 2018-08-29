@@ -1,0 +1,107 @@
+
+
+mod TRANSACTION is
+ inc CONFIGURATION .
+ pr NAT .
+ sorts Transaction TransactionList .
+ subsort Configuration < TransactionList .
+ subsort Nat < Oid .
+ op Transaction : -> Cid [ctor] .
+ op NumMin :_ : Nat -> Attribute [ ctor gather(&) ]. 
+ op _;_ : TransactionList TransactionList -> TransactionList [assoc ctor] .
+
+ op nil : -> TransactionList [ ctor ] .
+endm 
+
+
+mod BLOCK is
+ inc CONFIGURATION .
+ inc TRANSACTION .
+ sorts Blocks Block .
+ subsort Block < Blocks .
+ op Block : -> Cid [ctor ] .
+ op Transactions :_ : TransactionList -> Attribute [ ctor gather(&) ] .
+ op Parent :_ : Nat -> Attribute [ ctor gather(&) ] .
+ op mt : -> Blocks [ ctor ] .
+endm
+
+
+
+
+mod BLOCKCHAIN is 
+ inc CONFIGURATION .
+ inc TRANSACTION .
+ inc BLOCK .
+ pr NAT .
+ sort Sys .
+ subsort Nat < Oid .
+
+ op Blockchain : -> Cid [ ctor ] .
+ op next :_ : Nat -> Attribute [ ctor gather(&) ] .
+ op maxTransBl :_ : Nat -> Attribute [ ctor gather(&) ] .
+ op numPosTrans :_ : Nat -> Attribute [ ctor gather(&) ] .
+ op nextParent :_ : Nat -> Attribute [ ctor gather(&) ] .
+
+ op A-001 : -> Oid [ ctor ] .
+ op {_} : Configuration -> Sys .
+
+ var A A' A1 A2 : Oid .
+ vars N N' N2 N3 N4 N5 N6 : Nat . 
+ vars B B' : Blocks .
+ var Lt alf : TransactionList .
+ var Sp : Configuration .
+ 
+ op initsys : Nat Nat -> Sys .
+ eq initsys ( N , N' ) =  { < A-001 : Blockchain | next : 0 , maxTransBl : N, numPosTrans : N', nextParent : 0 > } .
+
+*** operador de creación de nuevo bloque .
+
+ op extract-trans : Configuration Nat Nat -> TransactionList .
+ eq extract-trans(none, N , N') = nil .
+ eq extract-trans(< A : Blockchain | next : N2 , maxTransBl : N5, numPosTrans : N4, nextParent : N3 > Sp , N , N') = extract-trans (Sp, N , N') .
+
+ eq extract-trans( < A : Block | Transactions : Lt , Parent : N3 > Sp , N , N' ) = extract-trans (Sp , N , N') .
+
+ ceq extract-trans (  < A : Transaction | NumMin : N3 > Sp  , N , N' ) = < A : Transaction | NumMin : N3 + 1 > ; extract-trans ( Sp , N , sd (N',1) ) if ( N3 < N ) /\ N' > 0 .
+
+ ceq extract-trans ( < A : Transaction | NumMin : N3 > Sp , N , N' ) = extract-trans (Sp , N , N') if ( N3 == N ) /\ N' <= 0 .
+
+ ceq extract-trans (  < A : Transaction | NumMin : N3 > Sp  , N , N' ) = extract-trans ( Sp , N , N' ) if ( N3 < N ) /\ N' == 0 .
+
+*** operador de actualización de transacciones y validación .
+
+ op validation : Configuration TransactionList -> Configuration .
+
+ eq validation ( none , nil ) = none .
+
+ eq validation ( Sp , nil ) = Sp . 
+
+ eq validation ( < A : Blockchain | next : N2 , maxTransBl : N, numPosTrans : N',  nextParent : N3 > Sp  ,  Lt ) =  < A : Blockchain | next : N2 , maxTransBl : N, numPosTrans : N',  nextParent : N3 > validation ( Sp , Lt ) .
+
+ eq validation ( < A' : Transaction | NumMin : N2 > Sp , < A' : Transaction | NumMin : N3 > Lt ) = < A' : Transaction | NumMin : N2 + 1 > validation ( Sp , Lt) .
+
+ eq validation ( < A2 : Block | Transactions : alf , Parent : N3 > Sp , Lt ) = < A2 : Block | Transactions : Lt , Parent : N3 > validation ( Sp , Lt) .
+
+ eq validation ( none , Lt ) = none .
+
+ *** reglas de reescritura .
+
+ rl [createTrans] : { < A : Blockchain | next : N2 , maxTransBl : N, numPosTrans : N',  nextParent : N3 > Sp} =>
+ { < A-001 : Blockchain | next : s N2 , maxTransBl : N, numPosTrans : N', nextParent : N3 > < N2 : Transaction | NumMin : 0 > Sp } .
+
+ crl [createBlock] : { < A : Blockchain | next : N2 , maxTransBl : N, numPosTrans : N', nextParent : N3 > Sp } =>
+ { < A-001 : Blockchain | next : N2 , maxTransBl : N, numPosTrans : N', nextParent : s N3 > < s N3 : Block | Transactions : Lt , Parent : N3 > Sp } 
+ if Lt := extract-trans (Sp , N , N') /\ Lt =/= nil .
+
+ crl [ValidateTrans] : { < A : Blockchain | next : N2 , maxTransBl : N, numPosTrans : N', nextParent : N3 > Sp < N3 : Block | Transactions : Lt , Parent : N6 > } => { Sp } 
+ if Sp := validation ( Sp , Lt ) .
+
+
+
+
+ ***crl [ mineTransaction ]
+
+endm 
+
+
+
